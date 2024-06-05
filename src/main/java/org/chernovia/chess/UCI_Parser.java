@@ -19,12 +19,23 @@ public class UCI_Parser {
     private boolean calculating = false;
     private final long calcWaitInterval = 250;
     private final long minMoveTime = 250;
+    public boolean running = false;
 
     public UCI_Parser() {
+        this(Level.INFO);
+    }
+    public UCI_Parser(Level level) {
         setLogger(Logger.getLogger("UCI_Parser"));
-        setLogLevel(Level.INFO);
+        setLogLevel(level);
     }
 
+    public void log(String msg) {
+        log(msg,Level.FINE);
+    }
+
+    public void log(String msg, Level level) {
+        logger.log(level,msg);
+    }
     public void setLogLevel(Level level) { logger.setLevel(level); }
     public void setLogger(Logger l) { logger = l; }
 
@@ -39,11 +50,12 @@ public class UCI_Parser {
             processReader = new BufferedReader(new InputStreamReader(engineProcess.getInputStream()));
             processWriter = new OutputStreamWriter(engineProcess.getOutputStream());
         } catch (IOException e) {
-            log("Engine IO Error: " + e.getMessage()); //e.printStackTrace();
+            log("Engine IO Error: " + e.getMessage(),Level.WARNING); //e.printStackTrace();
             return false;
         }
         id = String.valueOf(engineProcess.pid());
         log("New Engine Process: " + id);
+        running = true;
         return true;
     }
 
@@ -95,6 +107,23 @@ public class UCI_Parser {
         return buffer.toString();
     }
 
+    public void setMulti(int lines) {
+        sendCommand("setoption name MultiPV value " + lines);
+    }
+
+    public void setFEN(String fen) {
+        sendCommand("position fen " + fen);
+    }
+
+    public void startAnalyzing(String fen, int lines, int moveTime) {
+        long waitTime = waitToCalculate(calcWaitInterval);
+        calculating = true;
+        long actualMoveTime = moveTime > waitTime ? moveTime - waitTime : minMoveTime;
+        setFEN(fen);
+        setMulti(lines);
+        sendCommand("go movetime " + actualMoveTime);
+    }
+
     /**
      * This function returns the best move for a given position after
      * calculating for 'moveTime' ms
@@ -110,14 +139,9 @@ public class UCI_Parser {
     public CompletableFuture<List<UCI_Move>> getBestMoves(String fen, int lines, int moveTime) {
         return CompletableFuture.supplyAsync(() -> {
             long startTime = System.currentTimeMillis();
-            long waitTime = waitToCalculate(calcWaitInterval);
-            long actualMoveTime = moveTime > waitTime ? moveTime - waitTime : minMoveTime;
-            calculating = true;
+            startAnalyzing(fen,lines,moveTime);
             Board board = new Board();
             board.loadFromFen(fen);
-            sendCommand("position fen " + fen);
-            sendCommand("setoption name MultiPV value " + lines);
-            sendCommand("go movetime " + actualMoveTime);
             List<UCI_Move> moves = new ArrayList<>(lines);
             for (int i = 0; i < lines; i++) moves.add(null);
             try {
@@ -129,14 +153,14 @@ public class UCI_Parser {
                                 .ifPresent(line -> getField(tokens, "pv")
                                         .ifPresent(move -> getField(tokens, "cp")
                                                 .ifPresentOrElse(eval -> moves.set(Integer.parseInt(line) - 1,
-                                                                new UCI_Move(move, board.getSideToMove(),parseEval(eval),System.currentTimeMillis() - startTime)),
+                                                                new UCI_Move(move, board,parseEval(eval),System.currentTimeMillis() - startTime)),
                                                         () -> getField(tokens, "score").ifPresent(eval -> moves.set(Integer.parseInt(line) - 1,
-                                                                new UCI_Move(move, board.getSideToMove(),parseEval(eval),System.currentTimeMillis() - startTime))))));
+                                                                new UCI_Move(move, board,parseEval(eval),System.currentTimeMillis() - startTime))))));
 
                     } else if (tokens[0].equalsIgnoreCase("bestmove")) break;
                 }
             } catch (Exception e) {
-                log("Best Moves Generation Error: " + e.getMessage());
+                log("Best Moves Generation Error: " + e.getMessage(),Level.WARNING);
                 e.printStackTrace();
             }
             calculating = false;
@@ -191,9 +215,10 @@ public class UCI_Parser {
                 engineProcess.destroyForcibly();
             }
         } catch (IOException | InterruptedException e) {
-            log("Error closing engine: " + e.getMessage());
+            log("Error closing engine: " + e.getMessage(),Level.WARNING);
         }
-        log("Engine stopped.");
+        log("Engine stopped: " + id);
+        running = false;
     }
 
     /**
@@ -212,7 +237,4 @@ public class UCI_Parser {
         }
     }
 
-    public void log(String msg) {
-        logger.log(logger.getLevel(),msg);
-    }
 }
