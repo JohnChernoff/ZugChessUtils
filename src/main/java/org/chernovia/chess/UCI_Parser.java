@@ -164,6 +164,7 @@ public class UCI_Parser {
                 e.printStackTrace();
             }
             calculating = false;
+            moves.removeIf(Objects::isNull);
             return moves;
         });
     }
@@ -207,18 +208,20 @@ public class UCI_Parser {
      * Stops Stockfish and cleans up before closing it
      */
     public void stopEngine() {
-        try {
-            sendCommand("quit");
-            processReader.close();
-            processWriter.close();
-            if (!engineProcess.waitFor(5000, TimeUnit.MILLISECONDS)) {
-                engineProcess.destroyForcibly();
+        if (engineProcess != null) {
+            try {
+                sendCommand("quit");
+                if (processReader != null) processReader.close();
+                if (processWriter != null) processWriter.close();
+                if (!engineProcess.waitFor(5000, TimeUnit.MILLISECONDS)) {
+                    engineProcess.destroyForcibly();
+                }
+            } catch (IOException | InterruptedException e) {
+                log("Error closing engine: " + e.getMessage(),Level.WARNING);
             }
-        } catch (IOException | InterruptedException e) {
-            log("Error closing engine: " + e.getMessage(),Level.WARNING);
+            log("Engine stopped: " + id);
+            running = false;
         }
-        log("Engine stopped: " + id);
-        running = false;
     }
 
     /**
