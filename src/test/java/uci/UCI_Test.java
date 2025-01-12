@@ -4,7 +4,7 @@ import org.chernovia.chess.UCI_Parser;
 
 public class UCI_Test {
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws Exception {
         String normFEN = "r2q1rk1/pp1nppbp/2p3p1/5n2/3PR3/1BP5/PP1N1PPP/R1BQ2K1 b - - 2 12";
         String mateFEN = "rnbqkbnr/pppp1ppp/4p3/8/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 1";
         String promFEN = "1n2kbnr/ppPppppp/1r6/8/8/8/PP1PPPPP/RNBQKBNR w KQk - 0 1";

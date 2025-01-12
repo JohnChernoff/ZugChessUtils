@@ -132,11 +132,11 @@ public class UCI_Parser {
      * @param moveTime in milliseconds
      * @return A Completable Future containing the Best Move (as UCI_Move)
      */
-    public CompletableFuture<UCI_Move> getBestMove(String fen, int moveTime) {
+    public CompletableFuture<UCI_Move> getBestMove(String fen, int moveTime) throws IOException {
         return getBestMoves(fen,1,moveTime).handle((moves,oops) -> moves.get(0));
     }
 
-    public CompletableFuture<List<UCI_Move>> getBestMoves(String fen, int lines, int moveTime) {
+    public CompletableFuture<List<UCI_Move>> getBestMoves(String fen, int lines, int moveTime) throws IOException {
         return CompletableFuture.supplyAsync(() -> {
             long startTime = System.currentTimeMillis();
             startAnalyzing(fen,lines,moveTime);
